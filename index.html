@@ -124,7 +124,7 @@
 <div id="app">
   <canvas id="game"></canvas>
   <div id="scanlines"></div>
-
+ 
   <div id="mobileControls">
     <div class="pad">
       <div class="btn" id="up">▲</div>
@@ -138,15 +138,15 @@
     </div>
   </div>
 </div>
-
+ 
 <script>
 (() => {
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
-
+ 
   let W=720,H=1280,DPR=1;
   let PLAYER_ZONE_TOP=900;
-
+ 
   function resize(){
     const rect=canvas.getBoundingClientRect();
     DPR=Math.min(window.devicePixelRatio||1,2);
@@ -158,27 +158,27 @@
     player.y=Math.min(player.y||H-110,H-90);
   }
   addEventListener("resize",resize);
-
+ 
   const keys={};
   let gameStarted=false, paused=false, gameOver=false;
   let score=0, lives=3, wave=1;
   let highScore=Number(localStorage.getItem("redSwarmHigh2")||0);
   let lastTime=0, fireCooldown=0, shake=0;
-
+ 
   const player={x:360,y:1100,w:62,h:72,speed:360,invuln:0};
-
+ 
   let bullets=[], mushrooms=[], segments=[], particles=[], stars=[], spider=null, powerups=[];
-
+ 
   const rand=(a,b)=>Math.random()*(b-a)+a;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-
+ 
   function initStars(){
     stars=[];
     for(let i=0;i<110;i++){
       stars.push({x:Math.random()*W,y:Math.random()*H,s:rand(1,3),a:rand(.15,.75)});
     }
   }
-
+ 
   function createField(){
     mushrooms=[];
     const count=Math.floor(36+H/55);
@@ -189,7 +189,7 @@
       });
     }
   }
-
+ 
   function spawnWave(){
     segments=[];
     const count=11+Math.min(wave-1,10);
@@ -205,14 +205,14 @@
     }
     spider=null;
   }
-
+ 
   function resetGame(){
     score=0;lives=3;wave=1;gameOver=false;paused=false;
     player.x=W/2;player.y=H-110;player.invuln=0;
     bullets=[];particles=[];powerups=[];
     createField();spawnWave();initStars();
   }
-
+ 
   function audioCtx(){
     try{
       if(!window._ac) window._ac=new (AudioContext||webkitAudioContext)();
@@ -220,7 +220,7 @@
       return window._ac;
     }catch(e){ return null; }
   }
-
+ 
   function beep(freq,duration,vol=.035,type="square"){
     const ac=audioCtx(); if(!ac)return;
     const o=ac.createOscillator(),g=ac.createGain();
@@ -229,7 +229,7 @@
     g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+duration);
     o.stop(ac.currentTime+duration);
   }
-
+ 
   // Crisp sci-fi laser: short downward frequency sweep.
   function laserSound(){
     const ac=audioCtx(); if(!ac)return;
@@ -241,7 +241,7 @@
     g.gain.setValueAtTime(.045,now);
     g.gain.exponentialRampToValueAtTime(.0001,now+.09);
     o.connect(g);g.connect(ac.destination);o.start(now);o.stop(now+.095);
-
+ 
     const o2=ac.createOscillator(),g2=ac.createGain();
     o2.type="square";
     o2.frequency.setValueAtTime(1760,now);
@@ -250,7 +250,7 @@
     g2.gain.exponentialRampToValueAtTime(.0001,now+.06);
     o2.connect(g2);g2.connect(ac.destination);o2.start(now);o2.stop(now+.065);
   }
-
+ 
   // Pleasant impact chime: a tiny consonant major arpeggio.
   function hitChime(strength=1){
     const ac=audioCtx(); if(!ac)return;
@@ -266,7 +266,7 @@
       o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+.14);
     });
   }
-
+ 
   function mushroomChime(){
     const ac=audioCtx(); if(!ac)return;
     const now=ac.currentTime;
@@ -280,14 +280,14 @@
       o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+.1);
     });
   }
-
+ 
   function explode(x,y,color,n=12){
     for(let i=0;i<n;i++){
       const a=Math.random()*Math.PI*2,s=rand(60,220);
       particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(.25,.7),max:.7,color});
     }
   }
-
+ 
   function shoot(){
     if(fireCooldown>0||paused||gameOver) return;
     const muzzleY = player.y-player.h*.56;
@@ -299,12 +299,12 @@
     explode(player.x+18,muzzleY+16,"#43ff67",3);
     laserSound();
   }
-
+ 
   function collideRectCircle(rx,ry,rw,rh,cx,cy,cr){
     const tx=clamp(cx,rx-rw/2,rx+rw/2),ty=clamp(cy,ry-rh/2,ry+rh/2);
     const dx=cx-tx,dy=cy-ty;return dx*dx+dy*dy<=cr*cr;
   }
-
+ 
   function hitPlayer(x,y,r=16){
     if(player.invuln>0||gameOver) return;
     if(collideRectCircle(player.x,player.y,player.w,player.h,x,y,r)){
@@ -319,7 +319,7 @@
       }
     }
   }
-
+ 
   function update(dt){
     if(!gameStarted||paused||gameOver) return;
     fireCooldown-=dt;player.invuln-=dt;
@@ -332,15 +332,15 @@
     }
     player.x=clamp(player.x,26,W-26);
     player.y=clamp(player.y,PLAYER_ZONE_TOP+35,H-85);
-
+ 
     for(const s of stars){
       s.y+=s.s*9*dt;
       if(s.y>H){s.y=0;s.x=Math.random()*W}
     }
-
+ 
     for(const b of bullets)b.y+=b.vy*dt;
     bullets=bullets.filter(b=>b.y>-30);
-
+ 
     for(const seg of segments){
       if(!seg.alive)continue;
       seg.x+=seg.dir*seg.speed*dt;
@@ -357,7 +357,7 @@
       if(seg.y>H-110)seg.y=PLAYER_ZONE_TOP+rand(10,90);
       hitPlayer(seg.x,seg.y,seg.size*.65);
     }
-
+ 
     for(let bi=bullets.length-1;bi>=0;bi--){
       const b=bullets[bi];
       let consumed=false;
@@ -374,7 +374,7 @@
         }
       }
       if(consumed)continue;
-
+ 
       for(const m of mushrooms){
         if(m.hp<=0)continue;
         if(Math.hypot(b.x-m.x,b.y-m.y)<18){
@@ -385,9 +385,9 @@
         }
       }
     }
-
+ 
     mushrooms=mushrooms.filter(m=>m.hp>0);
-
+ 
     if(!spider&&Math.random()<dt*(.10+wave*.018)){
       spider={
         x:Math.random()<.5?-30:W+30,
@@ -397,7 +397,7 @@
       };
       spider.dir=spider.x<0?1:-1;
     }
-
+ 
     if(spider){
       spider.x+=spider.dir*spider.speed*dt;
       spider.y+=spider.vy*dt;
@@ -411,28 +411,28 @@
       }
       if(spider&&(spider.x<-60||spider.x>W+60))spider=null;
     }
-
+ 
     for(const p of particles){
       p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.985;p.vy*=.985;p.life-=dt;
     }
     particles=particles.filter(p=>p.life>0);
-
+ 
     if(segments.every(s=>!s.alive)){
       wave++;score+=600;spawnWave();
     }
     highScore=Math.max(highScore,score);
     shake*=.86;
   }
-
+ 
   function drawShip(x,y,scale=1){
     ctx.save();
     ctx.translate(x,y);
     ctx.scale(scale*1.4,scale*1.4);
-
+ 
     // outer energy halo
     ctx.shadowBlur=26;
     ctx.shadowColor="#43ff67";
-
+ 
     // swept wing armor
     ctx.fillStyle="#0a3d1b";
     ctx.beginPath();
@@ -449,7 +449,7 @@
     ctx.lineTo(-14,-11);
     ctx.closePath();
     ctx.fill();
-
+ 
     // brighter inner hull
     ctx.fillStyle="#20d94e";
     ctx.beginPath();
@@ -464,7 +464,7 @@
     ctx.lineTo(-9,-10);
     ctx.closePath();
     ctx.fill();
-
+ 
     // cockpit
     ctx.shadowBlur=10;
     ctx.shadowColor="#baffc7";
@@ -476,7 +476,7 @@
     ctx.lineTo(-6,-4);
     ctx.closePath();
     ctx.fill();
-
+ 
     // heavy cannons
     ctx.shadowBlur=14;
     ctx.shadowColor="#43ff67";
@@ -484,19 +484,19 @@
     ctx.fillRect(-31,4,7,25);
     ctx.fillRect(24,4,7,25);
     ctx.fillRect(-5,-12,10,34);
-
+ 
     // wing hardpoints
     ctx.fillStyle="#10351b";
     ctx.fillRect(-38,17,15,7);
     ctx.fillRect(23,17,15,7);
-
+ 
     // twin engine cores
     ctx.shadowBlur=20;
     ctx.shadowColor="#43ff67";
     ctx.fillStyle="#8dffa3";
     ctx.fillRect(-18,27,10,8);
     ctx.fillRect(8,27,10,8);
-
+ 
     // engine plumes
     const flame = 10 + Math.sin(performance.now()/45)*4;
     ctx.fillStyle="#43ff67";
@@ -504,29 +504,29 @@
     ctx.moveTo(-18,34); ctx.lineTo(-13,34+flame); ctx.lineTo(-8,34); ctx.closePath(); ctx.fill();
     ctx.beginPath();
     ctx.moveTo(8,34); ctx.lineTo(13,34+flame); ctx.lineTo(18,34); ctx.closePath(); ctx.fill();
-
+ 
     ctx.restore();
   }
-
+ 
   function drawEnemy(seg){
     ctx.save();ctx.translate(seg.x,seg.y);
     const c=seg.color==="red"?"#ff3030":(seg.color==="pink"?"#ff58b8":"#ffd83d");
     ctx.shadowBlur=16;ctx.shadowColor=c;
     ctx.fillStyle=c;
     ctx.beginPath();ctx.arc(0,0,seg.size,0,Math.PI*2);ctx.fill();
-
+ 
     ctx.shadowBlur=0;
     ctx.fillStyle=seg.color==="red"?"#5a0000":(seg.color==="pink"?"#5a1238":"#5a4300");
     ctx.fillRect(-9,-7,6,6);
     ctx.fillRect(3,-7,6,6);
     ctx.fillRect(-6,6,12,4);
-
+ 
     ctx.strokeStyle=c;ctx.lineWidth=3;
     ctx.beginPath();
     ctx.moveTo(-seg.size*.75,seg.size*.1);ctx.lineTo(-seg.size-9,seg.size*.55);
     ctx.moveTo(seg.size*.75,seg.size*.1);ctx.lineTo(seg.size+9,seg.size*.55);
     ctx.stroke();
-
+ 
     if(seg.head){
       ctx.beginPath();
       ctx.moveTo(-8,-seg.size*.7);ctx.lineTo(-14,-seg.size-9);
@@ -535,28 +535,28 @@
     }
     ctx.restore();
   }
-
+ 
   function draw(){
     ctx.save();
     const sx=shake?rand(-shake,shake):0,sy=shake?rand(-shake,shake):0;
     ctx.translate(sx,sy);
-
+ 
     const g=ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0,"#040709");
     g.addColorStop(.55,"#010203");
     g.addColorStop(1,"#041007");
     ctx.fillStyle=g;ctx.fillRect(-20,-20,W+40,H+40);
-
+ 
     for(const s of stars){
       ctx.globalAlpha=s.a;ctx.fillStyle="#dff7ff";
       ctx.fillRect(s.x,s.y,s.s,s.s);
     }
     ctx.globalAlpha=1;
-
+ 
     ctx.strokeStyle="rgba(67,255,103,.08)";
     ctx.lineWidth=2;
     ctx.beginPath();ctx.moveTo(0,PLAYER_ZONE_TOP);ctx.lineTo(W,PLAYER_ZONE_TOP);ctx.stroke();
-
+ 
     for(const m of mushrooms){
       ctx.save();ctx.translate(m.x,m.y);
       const hp=m.hp/m.maxHp;
@@ -570,9 +570,9 @@
       ctx.fillRect(-8,-8,5,5);ctx.fillRect(3,-6,5,5);
       ctx.restore();
     }
-
+ 
     for(const seg of segments)if(seg.alive)drawEnemy(seg);
-
+ 
     if(spider){
       ctx.save();ctx.translate(spider.x,spider.y);
       ctx.fillStyle="#ffd83d";ctx.shadowBlur=16;ctx.shadowColor="#ffd83d";
@@ -586,7 +586,7 @@
       }
       ctx.restore();
     }
-
+ 
     for(const b of bullets){
       if(b.kind==="core"){
         ctx.fillStyle="#d8fff0";ctx.shadowBlur=20;ctx.shadowColor="#43ff67";
@@ -599,73 +599,73 @@
       }
     }
     ctx.shadowBlur=0;
-
+ 
     if(player.invuln<=0||Math.floor(player.invuln*14)%2===0)drawShip(player.x,player.y,1);
-
+ 
     for(const p of particles){
       ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=p.color;
       ctx.fillRect(p.x,p.y,5,5);
     }
     ctx.globalAlpha=1;
-
+ 
     ctx.restore();
-
+ 
     ctx.fillStyle="rgba(0,0,0,.42)";
     ctx.fillRect(0,0,W,92*DPR);
-
+ 
     const fs=Math.max(16,24*DPR);
     ctx.font=`bold ${fs}px Courier New`;
     ctx.fillStyle="#fff";ctx.textAlign="left";
     ctx.fillText(`SCORE ${String(score).padStart(6,"0")}`,18*DPR,31*DPR);
     ctx.textAlign="right";
     ctx.fillText(`HI ${String(highScore).padStart(6,"0")}`,W-18*DPR,31*DPR);
-
+ 
     ctx.font=`bold ${Math.max(15,20*DPR)}px Courier New`;
     ctx.textAlign="center";ctx.fillStyle="#ffdf45";
     ctx.fillText(`STAR DEFENDER MAISUG  •  WAVE ${wave}`,W/2,62*DPR);
-
+ 
     ctx.textAlign="left";ctx.fillStyle="#45ff6c";
     ctx.fillText(`LIVES ${lives}`,18*DPR,62*DPR);
-
+ 
     if(!gameStarted)overlay("RED SWARM","STAR DEFENDER MAISUG","TAP FIRE OR PRESS SPACE");
     else if(paused)overlay("PAUSED","","TAP PAUSE TO CONTINUE");
     else if(gameOver)overlay("GAME OVER",`SCORE ${score}`,"TAP FIRE TO RESTART");
   }
-
+ 
   function overlay(title,sub,action){
     const bw=Math.min(W*.82,620*DPR),bh=Math.min(H*.24,280*DPR);
     const x=(W-bw)/2,y=(H-bh)/2;
     ctx.fillStyle="rgba(0,0,0,.78)";ctx.fillRect(x,y,bw,bh);
     ctx.strokeStyle="#43ff67";ctx.lineWidth=3*DPR;ctx.strokeRect(x,y,bw,bh);
-
+ 
     ctx.textAlign="center";
     ctx.fillStyle=(title==="RED SWARM")?"#ff2f2f":"#ffdf45";
     ctx.font=`bold ${Math.max(28,52*DPR)}px Courier New`;
     ctx.fillText(title,W/2,y+bh*.36);
-
+ 
     if(sub){
       ctx.fillStyle="#45ff6c";
       ctx.font=`bold ${Math.max(18,24*DPR)}px Courier New`;
       ctx.fillText(sub,W/2,y+bh*.52);
     }
-
+ 
     ctx.fillStyle="#fff";
     ctx.font=`bold ${Math.max(14,18*DPR)}px Courier New`;
     ctx.fillText(action,W/2,y+bh*.74);
   }
-
+ 
   function loop(t){
     const dt=Math.min((t-lastTime)/1000||0,.033);lastTime=t;
     update(dt);draw();requestAnimationFrame(loop);
   }
-
+ 
   function startOrFire(){
     audioCtx();
     if(!gameStarted){gameStarted=true;resetGame();return}
     if(gameOver){resetGame();return}
     shoot();
   }
-
+ 
   addEventListener("keydown",e=>{
     if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();
     const k=e.key.toLowerCase();
@@ -677,7 +677,7 @@
     if(k==="p"&&gameStarted&&!gameOver)paused=!paused;
     if(k==="r"&&gameStarted)resetGame();
   },{passive:false});
-
+ 
   addEventListener("keyup",e=>{
     const k=e.key.toLowerCase();
     if(e.key==="ArrowLeft"||k==="a")keys.left=false;
@@ -685,7 +685,7 @@
     if(e.key==="ArrowUp"||k==="w")keys.up=false;
     if(e.key==="ArrowDown"||k==="s")keys.down=false;
   });
-
+ 
   function bindHold(id,key){
     const el=document.getElementById(id);
     const on=e=>{e.preventDefault();keys[key]=true};
@@ -696,7 +696,7 @@
     el.addEventListener("pointerleave",off);
   }
   bindHold("left","left");bindHold("right","right");bindHold("up","up");bindHold("down","down");
-
+ 
   document.getElementById("fire").addEventListener("pointerdown",e=>{
     e.preventDefault();startOrFire();
   });
@@ -704,11 +704,11 @@
     e.preventDefault();
     if(gameStarted&&!gameOver)paused=!paused;
   });
-
+ 
   canvas.addEventListener("pointerdown",e=>{
     if(e.pointerType==="mouse"&&!gameStarted){gameStarted=true;resetGame()}
   });
-
+ 
   resize();initStars();requestAnimationFrame(loop);
 })();
 </script>
