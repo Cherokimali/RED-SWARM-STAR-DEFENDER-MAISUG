@@ -187,10 +187,11 @@
   let score=0, lives=3, wave=1;
   let highScore=Number(localStorage.getItem("redSwarmHigh2")||0);
   let lastTime=0, fireCooldown=0, shake=0;
+  let GLOW=1, fxSampleFrames=0, fxSampleTime=0, fxDecided=false;
 
   const player={x:360,y:1100,w:62,h:72,speed:360,invuln:0};
 
-  let bullets=[], mushrooms=[], segments=[], particles=[], stars=[], spider=null, powerups=[];
+  let bullets=[], mushrooms=[], segments=[], particles=[], stars=[], spider=null, powerups=[], textPops=[];
 
   const rand=(a,b)=>Math.random()*(b-a)+a;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -232,12 +233,39 @@
   function resetGame(){
     score=0;lives=3;wave=1;gameOver=false;paused=false;
     player.x=W/2;player.y=H-110;player.invuln=0;
-    bullets=[];particles=[];powerups=[];
+    bullets=[];particles=[];powerups=[];textPops=[];
     createField();spawnWave();initStars();
   }
 
   function vibrate(ms){
     try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){}
+  }
+
+  function speak(text){
+    try{
+      if(!("speechSynthesis" in window)) return;
+      const synth=window.speechSynthesis;
+      const u=new SpeechSynthesisUtterance(text);
+      const voices=synth.getVoices();
+      const isMale=v=>/male/i.test(v.name)&&!/female/i.test(v.name);
+      const british=v=>/^en-GB/i.test(v.lang);
+      // Prefer a British male voice, but no longer locked to it — falls
+      // back to whatever voice the device actually has so it doesn't
+      // stay silent or sound broken on phones without an en-GB voice.
+      const voice=
+        voices.find(v=>british(v)&&isMale(v)) ||
+        voices.find(british) ||
+        voices.find(isMale) ||
+        voices[0];
+      if(voice) u.voice=voice;
+      u.lang=voice?voice.lang:"en-GB";
+      u.pitch=voice&&isMale(voice)?1:0.85;
+      // Slower rate so the line is clearly understood mid-game.
+      u.rate=0.72;
+      u.volume=0.95;
+      synth.cancel();
+      synth.speak(u);
+    }catch(e){}
   }
 
   function audioCtx(){
@@ -315,6 +343,15 @@
     }
   }
 
+  // Satirical call-out per enemy color: pops a word out on explosion.
+  const WORD_FOR_HUE={red:"BANGAG",yellow:"FLOOD SCAM",pink:"GAA 2025"};
+  function spawnTextPop(x,y,hue){
+    const word=WORD_FOR_HUE[hue];
+    if(!word) return;
+    const color=hue==="red"?"#ff3030":(hue==="pink"?"#ff58b8":"#ffd83d");
+    textPops.push({x,y,text:word,color,life:1.1,max:1.1,vy:-95,drift:rand(-14,14)});
+  }
+
   function shoot(){
     if(fireCooldown>0||paused||gameOver) return;
     const muzzleY = player.y-player.h*.56;
@@ -339,6 +376,13 @@
       explode(player.x,player.y,"#43ff67",26);
       beep(100,.24,.06,"sawtooth");
       vibrate(lives<=0?[0,60,40,90]:40);
+      if(lives===1){
+        speak("Careful, last life mo na boss!");
+        textPops.push({x:player.x,y:player.y-46,text:"LAST LIFE MO NA, BOSS!",color:"#ff5b5b",life:1.5,max:1.5,vy:-85,drift:0});
+      }else if(lives>1){
+        speak("Careful, Boss!");
+        textPops.push({x:player.x,y:player.y-46,text:"CAREFUL, BOSS!",color:"#72efff",life:1.3,max:1.3,vy:-85,drift:0});
+      }
       player.x=W/2;player.y=H-110;
       if(lives<=0){
         gameOver=true;
@@ -360,7 +404,7 @@
       player.x+=dx*player.speed*dt;player.y+=dy*player.speed*dt;
     }
     player.x=clamp(player.x,26,W-26);
-    player.y=clamp(player.y,PLAYER_ZONE_TOP+35,H-85);
+    player.y=clamp(player.y,150*DPR,H-85);
 
     for(const s of stars){
       s.y+=s.s*9*dt;
@@ -396,6 +440,7 @@
           seg.alive=false;
           score+=seg.head?120:25;
           explode(seg.x,seg.y,seg.color==="red"?"#ff3030":(seg.color==="pink"?"#ff58b8":"#ffd83d"),seg.head?20:12);
+          spawnTextPop(seg.x,seg.y,seg.color);
           mushrooms.push({x:seg.x,y:seg.y,hp:3,maxHp:3,hue:["red","pink","yellow"][Math.floor(Math.random()*3)]});
           bullets.splice(bi,1);consumed=true;
           hitChime(seg.head?1.25:1);
@@ -408,7 +453,7 @@
         if(m.hp<=0)continue;
         if(Math.hypot(b.x-m.x,b.y-m.y)<18){
           m.hp--;bullets.splice(bi,1);
-          if(m.hp===0){score+=5;explode(m.x,m.y,m.hue==="red"?"#ff3030":(m.hue==="pink"?"#ff58b8":"#ffd83d"),7)}
+          if(m.hp===0){score+=5;explode(m.x,m.y,m.hue==="red"?"#ff3030":(m.hue==="pink"?"#ff58b8":"#ffd83d"),7);spawnTextPop(m.x,m.y,m.hue);}
           mushroomChime();
           break;
         }
@@ -446,6 +491,11 @@
     }
     particles=particles.filter(p=>p.life>0);
 
+    for(const t of textPops){
+      t.y+=t.vy*dt;t.x+=t.drift*dt;t.vy*=.96;t.life-=dt;
+    }
+    textPops=textPops.filter(t=>t.life>0);
+
     if(segments.every(s=>!s.alive)){
       wave++;score+=600;spawnWave();
     }
@@ -459,7 +509,7 @@
     ctx.scale(scale*1.4,scale*1.4);
 
     // outer energy halo
-    ctx.shadowBlur=26;
+    ctx.shadowBlur=26*GLOW;
     ctx.shadowColor="#43ff67";
 
     // swept wing armor
@@ -495,7 +545,7 @@
     ctx.fill();
 
     // cockpit
-    ctx.shadowBlur=10;
+    ctx.shadowBlur=10*GLOW;
     ctx.shadowColor="#baffc7";
     ctx.fillStyle="#caffd6";
     ctx.beginPath();
@@ -507,7 +557,7 @@
     ctx.fill();
 
     // heavy cannons
-    ctx.shadowBlur=14;
+    ctx.shadowBlur=14*GLOW;
     ctx.shadowColor="#43ff67";
     ctx.fillStyle="#65ff83";
     ctx.fillRect(-31,4,7,25);
@@ -520,7 +570,7 @@
     ctx.fillRect(23,17,15,7);
 
     // twin engine cores
-    ctx.shadowBlur=20;
+    ctx.shadowBlur=20*GLOW;
     ctx.shadowColor="#43ff67";
     ctx.fillStyle="#8dffa3";
     ctx.fillRect(-18,27,10,8);
@@ -540,7 +590,7 @@
   function drawEnemy(seg){
     ctx.save();ctx.translate(seg.x,seg.y);
     const c=seg.color==="red"?"#ff3030":(seg.color==="pink"?"#ff58b8":"#ffd83d");
-    ctx.shadowBlur=16;ctx.shadowColor=c;
+    ctx.shadowBlur=16*GLOW;ctx.shadowColor=c;
     ctx.fillStyle=c;
     ctx.beginPath();ctx.arc(0,0,seg.size,0,Math.PI*2);ctx.fill();
 
@@ -589,7 +639,7 @@
     for(const m of mushrooms){
       ctx.save();ctx.translate(m.x,m.y);
       const hp=m.hp/m.maxHp;
-      ctx.shadowBlur=10;
+      ctx.shadowBlur=10*GLOW;
       const mc = m.hue==="red" ? "#ff3030" : (m.hue==="pink" ? "#ff58b8" : "#ffd83d");
       ctx.shadowColor=mc;
       ctx.fillStyle=mc;
@@ -604,7 +654,7 @@
 
     if(spider){
       ctx.save();ctx.translate(spider.x,spider.y);
-      ctx.fillStyle="#ffd83d";ctx.shadowBlur=16;ctx.shadowColor="#ffd83d";
+      ctx.fillStyle="#ffd83d";ctx.shadowBlur=16*GLOW;ctx.shadowColor="#ffd83d";
       ctx.fillRect(-16,-11,32,22);ctx.fillRect(-24,-5,48,10);
       ctx.shadowBlur=0;ctx.strokeStyle="#ff5959";ctx.lineWidth=4;
       for(const s of [-1,1]){
@@ -618,12 +668,12 @@
 
     for(const b of bullets){
       if(b.kind==="core"){
-        ctx.fillStyle="#d8fff0";ctx.shadowBlur=20;ctx.shadowColor="#43ff67";
+        ctx.fillStyle="#d8fff0";ctx.shadowBlur=20*GLOW;ctx.shadowColor="#43ff67";
         ctx.fillRect(b.x-4,b.y-18,8,25);
         ctx.fillStyle="#43ff67";
         ctx.fillRect(b.x-2,b.y-24,4,9);
       }else{
-        ctx.fillStyle="#baffc7";ctx.shadowBlur=14;ctx.shadowColor="#43ff67";
+        ctx.fillStyle="#baffc7";ctx.shadowBlur=14*GLOW;ctx.shadowColor="#43ff67";
         ctx.fillRect(b.x-3,b.y-13,6,19);
       }
     }
@@ -636,6 +686,17 @@
       ctx.fillRect(p.x,p.y,5,5);
     }
     ctx.globalAlpha=1;
+
+    ctx.textAlign="center";
+    for(const t of textPops){
+      const a=Math.max(0,t.life/t.max);
+      ctx.globalAlpha=a;
+      ctx.shadowBlur=10*GLOW;ctx.shadowColor=t.color;
+      ctx.fillStyle=t.color;
+      ctx.font=`bold ${Math.max(13,15*DPR)}px Courier New`;
+      ctx.fillText(t.text,t.x,t.y);
+    }
+    ctx.globalAlpha=1;ctx.shadowBlur=0;
 
     ctx.restore();
 
@@ -685,13 +746,35 @@
 
   function loop(t){
     const dt=Math.min((t-lastTime)/1000||0,.033);lastTime=t;
-    update(dt);draw();requestAnimationFrame(loop);
+    update(dt);draw();
+
+    // Auto-detect low-end phones during the first ~1.5s of real gameplay and
+    // dial back the neon glow (shadowBlur is one of the costliest canvas ops)
+    // so the game stays smooth instead of visibly stuttering.
+    if(gameStarted&&!paused&&!gameOver&&!fxDecided&&dt>0){
+      fxSampleFrames++;fxSampleTime+=dt;
+      if(fxSampleTime>1.5){
+        const avgFps=fxSampleFrames/fxSampleTime;
+        GLOW=avgFps<48?0.35:1;
+        fxDecided=true;
+      }
+    }
+    requestAnimationFrame(loop);
   }
 
   let fireHeld=false;
+  let speechWarmed=false;
 
   function pressFire(){
     audioCtx();
+    if(!speechWarmed&&"speechSynthesis" in window){
+      speechWarmed=true;
+      try{
+        const u=new SpeechSynthesisUtterance(" ");
+        u.volume=0;
+        speechSynthesis.speak(u);
+      }catch(e){}
+    }
     if(!gameStarted){gameStarted=true;resetGame();return}
     if(gameOver){resetGame();return}
     fireHeld=true;
@@ -722,6 +805,16 @@
 
   // Stop iOS Safari pinch-zoom during play (user-scalable=no is sometimes ignored)
   document.addEventListener("gesturestart",e=>e.preventDefault());
+
+  // Auto-pause if the player switches apps, gets a call, or a notification
+  // covers the screen — prevents dying to something you couldn't see.
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden&&gameStarted&&!gameOver){
+      paused=true;
+      fireHeld=false;
+      keys.left=keys.right=keys.up=keys.down=false;
+    }
+  });
 
   function bindHold(id,key){
     const el=document.getElementById(id);
